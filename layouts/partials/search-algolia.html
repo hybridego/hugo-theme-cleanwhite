@@ -1,29 +1,34 @@
 <!-- Including InstantSearch.js library and styling -->
-<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@2.6.0/dist/instantsearch.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4/dist/algoliasearch-lite.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4/dist/instantsearch.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment.min.js"></script>
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/instantsearch.js@2.6.0/dist/instantsearch.min.css">
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/instantsearch.js@2.6.0/dist/instantsearch-theme-algolia.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/instantsearch.css@8/themes/satellite-min.css">
 
 <div id="search-searchbar"></div>
  <div class="post-list" id="search-hits">
  </div>
 
 <script>
+const searchClient = algoliasearch('{{ .Site.Params.algolia_appId }}', '{{ .Site.Params.algolia_apiKey }}');
+
 const search = instantsearch({
-  appId: '{{ .Site.Params.algolia_appId }}',
   indexName: '{{ .Site.Params.algolia_indexName }}',
-  apiKey: '{{ .Site.Params.algolia_apiKey }}'
+  searchClient,
 });
 
 const hitTemplate = function(hit) {
-/*  if (hit === null){
-      return;
-  }*/
   let date = '';
   if (hit.date) {
     date = moment.unix(hit.date).format('MMM D, YYYY');
   }
-  let url = `${hit.url}#${hit.anchor}`;
+  // Build a safe URL for the hit. The Algolia index contains fields like
+  // `permalink`, `relpermalink` or `url` depending on how the index was created.
+  // Use the first available and only append an anchor when it exists to
+  // avoid creating links like "undefined#undefined".
+  let url = hit.permalink || hit.url || hit.relpermalink || '';
+  if (hit.anchor) {
+    url = `${url}#${hit.anchor}`;
+  }
   const title = hit._highlightResult.title.value;
 
   let breadcrumbs = '';
@@ -53,22 +58,25 @@ const hitTemplate = function(hit) {
 }
 
 
-search.addWidget(
+search.addWidgets([
   instantsearch.widgets.searchBox({
     container: '#search-searchbar',
     placeholder: 'Search into posts...',
-    poweredBy: true // This is required if you're on the free Community plan
-  })
-);
-
-search.addWidget(
+    showSubmit: false,
+    showReset: false,
+  }),
+  
   instantsearch.widgets.hits({
     container: '#search-hits',
     templates: {
       item: hitTemplate
     }
+  }),
+  
+  instantsearch.widgets.configure({
+    hitsPerPage: 10,
   })
-);
+]);
 
 search.start();
 </script>
